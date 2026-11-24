@@ -558,7 +558,19 @@ function v4aSections(lines: string[]): VSection[] {
     if (cur.kind === 'add') {
       if (line.startsWith('+')) cur.addLines.push(line.slice(1));
       else if (line === '') cur.addLines.push('');
-      else if (blank(line)) continue; // a whitespace-only line cannot be content: it separates sections
+      else if (blank(line)) {
+        // A whitespace-only line cannot be Add content (SPEC section 8: a line starts with '+' or is
+        // empty). It only separates sections when nothing but blank lines follow it in this section,
+        // so look ahead: does more '+' content follow before the next section header?
+        let more = false;
+        for (let j = i + 1; j < last; j += 1) {
+          const ahead = lines[j]!;
+          if (ahead.startsWith('*** Add File: ') || ahead.startsWith('*** Delete File: ') || ahead.startsWith('*** Update File: ')) break;
+          if (ahead.startsWith('+')) { more = true; break; }
+        }
+        if (!more) continue; // trailing blank lines are not part of the section
+        throw new Exit2(`error: parse ${i + 1}`); // content follows, so this line sits inside the section and is neither '+' nor empty
+      }
       else throw new Exit2(`error: parse ${i + 1}`);
       continue;
     }
